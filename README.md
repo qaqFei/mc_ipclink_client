@@ -1,6 +1,6 @@
 # mc_ipclink_client
 
-The client of #[ipclink](https://github.com/qaqFei/mc_ipclink)
+The client of [ipclink](https://github.com/qaqFei/mc_ipclink)
 
 ## Example
 
