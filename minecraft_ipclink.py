@@ -4,6 +4,8 @@ import threading
 import json
 import random
 import queue
+import atexit
+import traceback
 
 class ShmSocket:
     lib = ctypes.CDLL("./shm_socket.dll")
@@ -71,29 +73,35 @@ def makeIPCServerRealName(name: str) -> str:
 
 class IPCLinkClient:
     def __init__(self, name: str, *, buffer_size: int = 16):
+        self._closed = False
         self._client = ShmSocket.createClient(makeIPCServerRealName(name), self._recv)
         self._callbacks = {}
         self._send_queue: queue.Queue[typing.Optional[bytes]] = queue.Queue(maxsize=buffer_size)
         self._send_thread = threading.Thread(target=self._sender, daemon=True)
         self._send_thread.start()
+        atexit.register(self.close)
     
     def _recv(self, data: bytes):
-        data = json.loads(data.decode("utf-8"))
-        seq = data["seq"]
-        
-        def check_seq(target: int, msg: str):
-            if seq == target:
-                raise Exception("invalid packet was sent: " + msg)
+        try:
+            data = json.loads(data.decode("utf-8"))
+            seq = data["seq"]
+            
+            def check_seq(target: int, msg: str):
+                if seq == target:
+                    raise Exception("invalid packet was sent: " + msg)
 
-        check_seq(0, "json syntax error")
-        check_seq(1, "json structure is wrong")
-        check_seq(2, "undefined packet type")
-        check_seq(3, "invalid packet seq")
-        
-        callback = self._callbacks[seq]
-        if callback is not None: callback(data["data"])
-        
-        self._callbacks.pop(seq)
+            check_seq(0, "json syntax error")
+            check_seq(1, "json structure is wrong")
+            check_seq(2, "undefined packet type")
+            check_seq(3, "invalid packet seq")
+            
+            if seq in self._callbacks: # 可能是旧数据包
+                callback = self._callbacks[seq]
+                if callback is not None: callback(data["data"])
+                
+                self._callbacks.pop(seq)
+        except Exception as e:
+            traceback.print_exc()
     
     def _sender(self):
         while True:
@@ -129,16 +137,24 @@ class IPCLinkClient:
             threading.Thread(target=self.runForever, daemon=True).start()
             return
         
-        while not ShmSocket.clientGetShutdown(self._client):
+        while not self._closed and not ShmSocket.clientGetShutdown(self._client):
             ShmSocket.clientRecv(self._client)
+    
+    def close(self):
+        if self._closed:
+            return
         
-    def __del__(self):
         try:
             self._send_queue.put(None)
             self._send_thread.join()
             ShmSocket.destroyClient(self._client)
         except Exception:
             pass
+        
+        self._closed = True
+        
+    def __del__(self):
+        self.close()
 
 if __name__ == "__main__":
     client = IPCLinkClient("test")
