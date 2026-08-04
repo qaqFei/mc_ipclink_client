@@ -132,6 +132,12 @@ class IPCLinkClient:
     def runCommands(self, commands: list[str], callback: typing.Optional[typing.Callable[[list[int]], None]] = None):
         self._sendPacket("runCommands", commands, callback)
     
+    def getBlockInfo(self, level: str, x: int, y: int, z: int, callback: typing.Optional[typing.Callable[[dict], None]] = None):
+        self._sendPacket("getBlockInfo", {
+            "level": level,
+            "x": x, "y": y, "z": z
+        }, callback)
+    
     def runForever(self, inOtherThread: bool = False):
         if inOtherThread:
             threading.Thread(target=self.runForever, daemon=True).start()
@@ -160,6 +166,10 @@ if __name__ == "__main__":
     client = IPCLinkClient("test")
     client.runForever(inOtherThread=True)
     
+    # while True:
+    #     msg = input(">> ")
+    #     client.runCommand(msg)
+    
     while True:
-        msg = input(">> ")
-        client.runCommand(msg)
+        x, y, z = map(int, input(">> ").split())
+        client.getBlockInfo("overworld", x, y, z, print)
