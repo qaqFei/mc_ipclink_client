@@ -143,8 +143,11 @@ class IPCLinkClient:
             threading.Thread(target=self.runForever, daemon=True).start()
             return
         
-        while not self._closed and not ShmSocket.clientGetShutdown(self._client):
-            ShmSocket.clientRecv(self._client)
+        try:
+            while not self._closed and not ShmSocket.clientGetShutdown(self._client):
+                ShmSocket.clientRecv(self._client)
+        except Exception:
+            pass
     
     def close(self):
         if self._closed:
