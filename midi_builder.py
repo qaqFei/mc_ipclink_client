@@ -88,6 +88,7 @@ for bucketIndex, bucket in enumerate(noteBuckets):
         name, pitch, num = get_type(i)
         types.extend([(name, pitch)] * num)
     
+    types = types[:4*28-1]
     types.append((None, None))
     
     for i, (note, pitch) in enumerate(types):
